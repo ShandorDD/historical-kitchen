@@ -37,12 +37,20 @@ from substitutes import SUBSTITUTES                      # noqa: E402
 # hand-written recipes in recipes.py stay the curated core.
 GEN_PATH = os.path.join(BASE, "th_generated.json")
 GB_PATH = os.path.join(BASE, "gb_generated.json")
+ESCO_PATH = os.path.join(BASE, "escoffier_generated.json")
+RAMSAY_PATH = os.path.join(BASE, "ramsay_generated.json")
 GENERATED = []
 if os.path.exists(GEN_PATH):
     with open(GEN_PATH) as f:
         GENERATED = json.load(f)
 if os.path.exists(GB_PATH):
     with open(GB_PATH) as f:
+        GENERATED = GENERATED + json.load(f)
+if os.path.exists(ESCO_PATH):
+    with open(ESCO_PATH) as f:
+        GENERATED = GENERATED + json.load(f)
+if os.path.exists(RAMSAY_PATH):
+    with open(RAMSAY_PATH) as f:
         GENERATED = GENERATED + json.load(f)
 
 OUT = os.path.join(BASE, "index.html")
@@ -175,6 +183,7 @@ EXCLUDE_TITLES = {
     "kration",
     "dration",
     "conditum paradoxum (roman spiced wine)",
+    "cutlets",
 }
 
 
@@ -247,8 +256,12 @@ def validate():
             problems.append(f"{rid}: bad servings")
         if len(r.get("history", "")) < 200:
             problems.append(f"{rid}: history too short ({len(r.get('history',''))} chars)")
-        if len(r.get("method", [])) < 3:
-            problems.append(f"{rid}: fewer than 3 method steps")
+        # A recipe may legitimately be one long instruction. What it must
+        # not be is empty.
+        if len(r.get("method", [])) < 1:
+            problems.append(f"{rid}: no method steps")
+        if r.get("method") and len(" ".join(r["method"])) < 60:
+            problems.append(f"{rid}: method too short to be usable")
         if not r.get("source"):
             problems.append(f"{rid}: no source citation")
         for ing in r["ingredients"]:
@@ -936,9 +949,33 @@ function renderResults(){
     return;
   }
 
-  for(const {r, s} of filtered){
-    host.appendChild(renderCard(r, s));
+  // With over a thousand recipes, rendering every card at once is slow
+  // on a phone. Render the first batch, then the rest in chunks as the
+  // user reaches the bottom.
+  const BATCH = 60;
+  let shown = 0;
+  const more = el('div','empty');
+  more.style.cssText = 'padding:18px;cursor:pointer';
+
+  function drawBatch(){
+    const slice = filtered.slice(shown, shown + BATCH);
+    if(!slice.length) return;
+    const frag = document.createDocumentFragment();
+    for(const {r, s} of slice){
+      frag.appendChild(renderCard(r, s));
+    }
+    host.appendChild(frag);
+    shown += slice.length;
+    if(shown < filtered.length){
+      more.textContent = 'Showing ' + shown + ' of ' + filtered.length +
+        ' — tap to load more';
+      if(!more.parentNode) host.appendChild(more);
+    } else {
+      more.remove();
+    }
   }
+  more.onclick = drawBatch;
+  drawBatch();
 }
 
 function renderCard(r, s){

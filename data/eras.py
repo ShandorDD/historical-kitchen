@@ -57,6 +57,16 @@ ERAS = [
                  "purées and butter used like a spice.",
     },
     {
+        "key": "escoffier",
+        "label": "Escoffier's Foundations",
+        "span": "1903",
+        "blurb": "Before the dishes, the foundations: every stock, sauce, "
+                 "forcemeat and court-bouillon in the book, from Le Guide "
+                 "Culinaire. This is the grammar that the Ritz and the Savoy "
+                 "spoke — and that most of the sauces you use today are "
+                 "still written in.",
+    },
+    {
         "key": "wartime",
         "label": "Wartime",
         "span": "1914 – 1945",
