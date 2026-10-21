@@ -76,6 +76,7 @@ h1{
 .seg button{
   background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:12.5px;
   padding:6px 10px;cursor:pointer;border-right:1px solid var(--line);
+  white-space:nowrap;
 }
 .seg button:last-child{border-right:none}
 .seg button:hover{color:var(--fg);background:#1e1e27}
@@ -249,6 +250,13 @@ footer a:hover{text-decoration:underline}
   .wrap{padding:0 12px}
   header{padding:24px 0 20px}
   .toolbar{padding:11px 12px;gap:9px}
+  /* the era chip row is wider than a phone: let it scroll sideways
+     instead of pushing the page wide */
+  .tb-group{max-width:100%;min-width:0;flex:1 1 auto}
+  .tb-group .seg{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .tb-group .seg::-webkit-scrollbar{height:0}
+  .toolbar{flex-wrap:wrap;min-width:0}
+  .toolbar > .tb-group:last-child{margin-left:auto !important;flex:0 0 auto}
   .card-head{padding:13px 14px;gap:10px}
   .ch-title{font-size:17px}
   .score{min-width:74px}
@@ -261,6 +269,7 @@ footer a:hover{text-decoration:underline}
   .scale-bar{gap:8px;padding:9px 11px}
   .presets button{padding:5px 8px;font-size:11.5px}
   .pp-head{flex-direction:column;align-items:flex-start;gap:6px}
+  .byline{font-size:11.5px}
 }
 @media(max-width:380px){
   .score{min-width:64px;font-size:11px}
