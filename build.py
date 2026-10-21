@@ -32,7 +32,166 @@ from pantry import (PANTRY, DEFAULT_PANTRY, CATEGORIES,  # noqa: E402
                     NEAR_EQUIVALENTS, ALIASES)
 from substitutes import SUBSTITUTES                      # noqa: E402
 
+# The Tasting History corpus is extracted mechanically from the source
+# pages by extract_th.py + map_pantry.py. It is loaded from JSON so the
+# hand-written recipes in recipes.py stay the curated core.
+GEN_PATH = os.path.join(BASE, "th_generated.json")
+GB_PATH = os.path.join(BASE, "gb_generated.json")
+GENERATED = []
+if os.path.exists(GEN_PATH):
+    with open(GEN_PATH) as f:
+        GENERATED = json.load(f)
+if os.path.exists(GB_PATH):
+    with open(GB_PATH) as f:
+        GENERATED = GENERATED + json.load(f)
+
 OUT = os.path.join(BASE, "index.html")
+
+# The Tasting History corpus contains several recipes that are also in the
+# hand-written set (Potage Crecy, Potted Meat, the WWII rations and so on).
+# The curated versions carry the period-oddity panels and the verbatim
+# quotes, so the extracted duplicates are dropped here.
+EXCLUDE_TITLES = {
+    "b ration apple cranberry sauce",
+    "medieval cherry cheesecake",
+    "medieval mustard",
+    "potage crécy (creamy carrot and potato soup)",
+    "potted meat",
+    "roman mustard",
+    "william the conqueror’s hen with cameline sauce",
+    "wwii british corned beef stew",
+    "wwii british military ration scones",
+    "wwii italian military carrots",
+    "wwii italian military pasta",
+    "sumerian date cheesecake",
+    "medieval cherry cheesecake",
+    "old-fashioned old fashioned",
+    "kvass",
+    "pina colada",
+    "baklava",
+    "aztec salsa",
+    "gumbo with crab and shrimp",
+    "b ration apple cranberry sauce (1946)",
+    "payn ragoun (medieval pine nut and grape sauce)",
+    "william the conqueror’s hippocras",
+    "new and improved kykeon",
+    "odysseus’s roast pork",
+    "stonehenge pork ribs with honey and mustard seed",
+    "stonehenge nettle and hazelnut soup",
+    "ancient egyptian zalabiya",
+    "kanasu stew",
+    "magnonnaise (mayonnaise)",
+    "teacaudle",
+    "chocolate wine",
+    "english toffee",
+    "turkish delight",
+    "gumbo",
+    "welsh rarebit",
+    "chelsea buns",
+    "kaldolmar",
+    "pelmeni",
+    "k-1 defense biscuits",
+    "world war ii d ration",
+    "b ration sausage and beans",
+    "b ration pineapple milk",
+    "workhouse scouse with suet dumplings",
+    "shepherd’s pie",
+    "school lunch salisbury steak",
+    "tomato soup cake",
+    "tesla’s roast duck with celery and cherries",
+    "spiced kangaroo",
+    "salsa de chile macho",
+    "margherita pizza",
+    "lobster with beurre blanc",
+    "smoked salmon roses with caviar",
+    "milk punch",
+    "pocket soup",
+    "puits d’amour",
+    "pocketsoup",
+    "alappanu",
+    "brawn en peuerade",
+    "biscuit hash",
+    "anchovies with parmesan",
+    "beef bourguignon",
+    "williamshippocras",
+    "pottedmeat",
+    "potagecrecy",
+    "romanmustard",
+    "medievalmustard",
+    "medievalcherrycheesecake",
+    "oldfashioned",
+    "kvass",
+    "baklava",
+    "aztecsalsa",
+    "gumbo",
+    "wwiibritishcornedbeefstew",
+    "wwiibritishscones",
+    "wwiiitaliancarrots",
+    "wwiiitalianpasta",
+    "brationapplesauce",
+    "sumeriandatecake",
+    "wwiimincemeatpie",
+    "kration",
+    "dration",
+    "brationsausageandbeans",
+    "brationpineapplemilk",
+    "scouseandsuetdumplings",
+    "shepherdspie",
+    "salisburysteak",
+    "tomatosoupcake",
+    "teslasduck",
+    "spicedkangaroo",
+    "salsadechilemacho",
+    "margheritapizza",
+    "lobsterwithbeurreblanc",
+    "smokedsalmonroses",
+    "milkpunch",
+    "pocketsoup",
+    "puitsdamour",
+    "alappanu",
+    "brawnenpeuerade",
+    "biscuithash",
+    "anchovieswithparmesan",
+    "beefbourguignon",
+    "pinacolada",
+    "mayonnaise",
+    "englishtoffee",
+    "turkishdelight",
+    "chocolatewine",
+    "chelseabuns",
+    "kaldolmar",
+    "pelmeni",
+    "teacaudle",
+    "newkykeon",
+    "odysseusspork",
+    "stonehengeribs",
+    "stonehengesoup",
+    "zalabiya",
+    "kanasustew",
+    "paynragoun",
+    "williamshippocras",
+    "romanporkandpuls",
+    "romansweetandsour",
+    "kration",
+    "dration",
+    "conditum paradoxum (roman spiced wine)",
+}
+
+
+def _norm_title(t):
+    return " ".join(str(t).lower().split())
+
+
+_excluded = 0
+_keep = []
+for _r in GENERATED:
+    _t = _norm_title(_r.get("title", ""))
+    if _t in EXCLUDE_TITLES or _r.get("id", "") in EXCLUDE_TITLES:
+        _excluded += 1
+        continue
+    _keep.append(_r)
+GENERATED = _keep
+print(f"Excluded {_excluded} duplicate recipes; {len(GENERATED)} generated remain.")
 
 # ------------------------------------------------------------------ payloads
 ERAS_JSON = json.dumps(ERAS, ensure_ascii=False)
@@ -47,8 +206,9 @@ NEAR_JSON = json.dumps(NEAR_EQUIVALENTS, ensure_ascii=False)
 SUBS_JSON = json.dumps(SUBSTITUTES, ensure_ascii=False)
 
 # Recipes: strip the python-only bits, keep what the page needs.
+ALL_RECIPES = list(RECIPES) + list(GENERATED)
 recs = []
-for r in RECIPES:
+for r in ALL_RECIPES:
     recs.append({
         "id": r["id"],
         "title": r["title"],
@@ -65,6 +225,8 @@ for r in RECIPES:
         "method": r["method"],
         "ingredients": r["ingredients"],
         "funky": r.get("funky", []),
+        "ingredient_source": r.get("ingredient_source", "sourced"),
+        "gloss": r.get("gloss", ""),
     })
 RECIPES_JSON = json.dumps(recs, ensure_ascii=False)
 
@@ -74,7 +236,7 @@ problems = []
 
 def validate():
     seen_ids = set()
-    for r in RECIPES:
+    for r in ALL_RECIPES:
         rid = r["id"]
         if rid in seen_ids:
             problems.append(f"duplicate recipe id: {rid}")
@@ -83,6 +245,12 @@ def validate():
             problems.append(f"{rid}: unknown era '{r['era']}'")
         if r["servings"] < 1:
             problems.append(f"{rid}: bad servings")
+        if len(r.get("history", "")) < 200:
+            problems.append(f"{rid}: history too short ({len(r.get('history',''))} chars)")
+        if len(r.get("method", [])) < 3:
+            problems.append(f"{rid}: fewer than 3 method steps")
+        if not r.get("source"):
+            problems.append(f"{rid}: no source citation")
         for ing in r["ingredients"]:
             if ing["pantry"] not in PANTRY and ing["pantry"] not in ALIASES:
                 problems.append(
@@ -90,6 +258,9 @@ def validate():
                     f"key '{ing['pantry']}'")
             if ing.get("qty") is None:
                 problems.append(f"{rid}: ingredient '{ing['name']}' has no qty")
+            if not isinstance(ing.get("qty"), (int, float)) or ing["qty"] <= 0:
+                problems.append(
+                    f"{rid}: ingredient '{ing['name']}' has bad qty {ing.get('qty')!r}")
         # every funky ingredient should map to a documented substitute and
         # point at a real ingredient in the recipe
         for f in r.get("funky", []):
@@ -103,9 +274,11 @@ def validate():
                     f"'{f.get('ing_ref')}' matches no ingredient in the recipe")
     # era coverage
     for e in ERA_ORDER:
-        n = sum(1 for r in RECIPES if r["era"] == e)
+        n = sum(1 for r in ALL_RECIPES if r["era"] == e)
         if n == 0:
             problems.append(f"era '{e}' has no recipes")
+        elif n < 2:
+            problems.append(f"era '{e}' has only {n} recipe")
     # every substitute reference should be reachable: either it names a
     # pantry key, or it is a concept-level entry (an oddity that has no
     # single modern pantry item, e.g. "grape must").
@@ -132,7 +305,8 @@ if problems:
         print("  -", p)
     sys.exit(1)
 
-print(f"Validation passed: {len(RECIPES)} recipes across {len(ERA_ORDER)} eras.")
+print(f"Validation passed: {len(ALL_RECIPES)} recipes across {len(ERA_ORDER)} eras "
+      f"({len(RECIPES)} curated + {len(GENERATED)} extracted).")
 
 # ------------------------------------------------------------------ the page
 HTML = r"""<!DOCTYPE html>
@@ -522,7 +696,8 @@ const ML_PER = {
 const PLURAL = {
   g:'g', kg:'kg', ml:'ml', l:'L', ea:'', tbsp:'tbsp', tsp:'tsp',
   cup:'cups', quart:'qt', pint:'pt', gallon:'gal', gill:'gill',
-  sextarius:'sextarii', handful:'handfuls', pinch:'pinches', dozen:'dozen'
+  sextarius:'sextarii', handful:'handfuls', pinch:'pinches', dozen:'dozen',
+  lb:'lb', oz:'oz'
 };
 
 /* Format a scaled quantity nicely, switching to the retail unit when the
@@ -536,6 +711,8 @@ function fmtQty(qty, unit, factor){
   }
   if(unit === 'kg') return (Math.round(v*1000)/1000) + ' kg';
   if(unit === 'l')  return (Math.round(v*100)/100) + ' L';
+  if(unit === 'lb') return (Math.round(v*100)/100) + ' lb';
+  if(unit === 'oz') return (Math.round(v*10)/10) + ' oz';
   if(unit === 'g'){
     if(v >= 1000) return (Math.round(v/10)/100) + ' kg';
     return (Math.round(v*10)/10) + ' g';
@@ -848,7 +1025,22 @@ function buildBody(body, r, s){
 
   // ---- ingredients
   const is = el('div','sec');
-  is.appendChild(el('h4', null, 'Ingredients &mdash; ' + state.portions + ' portion' + (state.portions===1?'':'s')));
+  const ingHead = 'Ingredients &mdash; ' + state.portions + ' portion' + (state.portions===1?'':'s');
+  is.appendChild(el('h4', null, ingHead));
+  if(r.ingredient_source === 'reconstructed'){
+    const warn = el('p');
+    warn.style.cssText = 'font-size:12.5px;color:var(--dim2);margin:-4px 0 10px';
+    warn.innerHTML = 'This book does not print an ingredient list. The list below was ' +
+      'read out of the method text, and the quantities are a modern cook\\u2019s ' +
+      'sensible defaults rather than the book\\u2019s own.';
+    is.appendChild(warn);
+  }
+  if(r.gloss){
+    const gl = el('p');
+    gl.style.cssText = 'font-size:13px;color:var(--amber);margin:-4px 0 10px';
+    gl.innerHTML = '<em>' + esc(r.gloss) + '</em>';
+    is.appendChild(gl);
+  }
   const list = el('div','ing-list');
   for(const ing of r.ingredients){
     const have = has(ing.pantry);
@@ -968,7 +1160,7 @@ page = (HTML
         .replace("__RECIPES__", RECIPES_JSON)
         .replace("__PANTRY__", PANTRY_JSON)
         .replace("__CATEGORIES__", CATEGORIES_JSON)
-        .replace("__COUNT__", str(len(RECIPES)))
+        .replace("__COUNT__", str(len(ALL_RECIPES)))
         .replace("__DEFAULT__", DEFAULT_JSON)
         .replace("__NEAR__", NEAR_JSON)
         .replace("__SUBS__", SUBS_JSON)
@@ -1003,7 +1195,7 @@ for fn in ["renderAll", "renderPantry", "renderResults", "renderEraRail",
         smoke_fail.append(f"function {fn}() missing")
 
 # the recipe count in the header must match the corpus
-if f'<span id="recipeCount">{len(RECIPES)}</span>' not in page:
+if f'<span id="recipeCount">{len(ALL_RECIPES)}</span>' not in page:
     smoke_fail.append("header recipe count does not match corpus size")
 
 # no external RESOURCE requests: scripts, stylesheets, images and fonts
@@ -1030,6 +1222,6 @@ if smoke_fail:
 print("Smoke test passed: no unreplaced placeholders, all JS wired.")
 
 print(f"Wrote {OUT}  ({len(page):,} bytes)")
-print(f"  recipes : {len(RECIPES)}")
+print(f"  recipes : {len(ALL_RECIPES)} ({len(RECIPES)} curated + {len(GENERATED)} extracted)")
 print(f"  eras    : {len(ERAS)}")
 print(f"  pantry  : {len(PANTRY)} items in {len(CATEGORIES)} categories")

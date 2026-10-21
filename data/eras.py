@@ -28,10 +28,12 @@ ERAS = [
     },
     {
         "key": "renaissance",
-        "label": "Renaissance & Colonial",
-        "span": "1500 – 1650",
+        "label": "Renaissance & Stuart",
+        "span": "1500 – 1670",
         "blurb": "Old World and New collide. Aztec moles, Russian kvass, "
-                 "and the first printed cookbooks.",
+                 "the first printed cookbooks, and May\u2019s Accomplisht Cook "
+                 "of 1660 \u2014 the first cookbook by a working professional "
+                 "cook in English.",
     },
     {
         "key": "georgian",
