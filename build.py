@@ -31,6 +31,8 @@ from recipes import RECIPES                              # noqa: E402
 from pantry import (PANTRY, DEFAULT_PANTRY, CATEGORIES,  # noqa: E402
                     NEAR_EQUIVALENTS, ALIASES)
 from substitutes import SUBSTITUTES                      # noqa: E402
+from cuisines import (family_for, FAMILY_ORDER,           # noqa: E402
+                      FAMILY_BLURB)
 
 # The Tasting History corpus is extracted mechanically from the source
 # pages by extract_th.py + map_pantry.py. It is loaded from JSON so the
@@ -39,6 +41,8 @@ GEN_PATH = os.path.join(BASE, "th_generated.json")
 GB_PATH = os.path.join(BASE, "gb_generated.json")
 ESCO_PATH = os.path.join(BASE, "escoffier_generated.json")
 RAMSAY_PATH = os.path.join(BASE, "ramsay_generated.json")
+REGION_PATH = os.path.join(BASE, "region_generated.json")
+NOVELS_PATH = os.path.join(BASE, "novels_generated.json")
 GENERATED = []
 if os.path.exists(GEN_PATH):
     with open(GEN_PATH) as f:
@@ -52,6 +56,16 @@ if os.path.exists(ESCO_PATH):
 if os.path.exists(RAMSAY_PATH):
     with open(RAMSAY_PATH) as f:
         GENERATED = GENERATED + json.load(f)
+if os.path.exists(REGION_PATH):
+    with open(REGION_PATH) as f:
+        GENERATED = GENERATED + json.load(f)
+
+# The literary corpus is kept separate from the recipes: a passage from
+# Dracula is evidence about the table, not a recipe.
+FICTION = []
+if os.path.exists(NOVELS_PATH):
+    with open(NOVELS_PATH) as f:
+        FICTION = json.load(f)
 
 OUT = os.path.join(BASE, "index.html")
 
@@ -218,12 +232,16 @@ SUBS_JSON = json.dumps(SUBSTITUTES, ensure_ascii=False)
 ALL_RECIPES = list(RECIPES) + list(GENERATED)
 recs = []
 for r in ALL_RECIPES:
+    # The region string is free text; the cuisine family is what the
+    # filter uses, so every recipe gets one.
+    fam = family_for(r.get("region", "")) or "Other"
     recs.append({
         "id": r["id"],
         "title": r["title"],
         "era": r["era"],
         "year": r["year"],
         "region": r["region"],
+        "cuisine": fam,
         "source": r["source"],
         "source_url": r.get("source_url", ""),
         "servings": r["servings"],
@@ -238,6 +256,15 @@ for r in ALL_RECIPES:
         "gloss": r.get("gloss", ""),
     })
 RECIPES_JSON = json.dumps(recs, ensure_ascii=False)
+
+# Cuisine families with their blurbs, for the filter panel.
+_cfam = {}
+for _r in recs:
+    _cfam[_r["cuisine"]] = _cfam.get(_r["cuisine"], 0) + 1
+CUISINES_JSON = json.dumps(
+    [{"key": k, "label": k, "n": _cfam[k], "blurb": FAMILY_BLURB.get(k, "")}
+     for k in FAMILY_ORDER if _cfam.get(k)],
+    ensure_ascii=False)
 
 # ---------------------------------------------------------- validation pass
 problems = []
@@ -359,6 +386,86 @@ h1{
 }
 .sub{color:var(--dim);font-size:15px;max-width:62ch;margin:0 0 20px}
 .byline{color:var(--dim2);font-size:12.5px;font-family:var(--mono)}
+
+/* ---------- tabs ---------- */
+.tabs{
+  display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--line);
+  padding-bottom:0;
+}
+.tab{
+  background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--dim);font-family:var(--serif);font-size:16px;font-weight:600;
+  padding:9px 14px 10px;cursor:pointer;transition:.13s;
+}
+.tab:hover{color:var(--fg)}
+.tab.on{color:var(--amber);border-bottom-color:var(--amber)}
+
+/* ---------- fiction & fear ---------- */
+.food-strip{
+  display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;
+}
+.food-chip{
+  background:var(--bg2);border:1px solid var(--line);border-radius:20px;
+  padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--dim);
+  transition:.12s;user-select:none;
+}
+.food-chip:hover{border-color:#3a3a46;color:var(--fg)}
+.food-chip.on{border-color:var(--red);background:#201113;color:#e8b4b0}
+.lit{
+  background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+  margin-bottom:12px;overflow:hidden;transition:border-color .14s;
+}
+.lit:hover{border-color:#31313c}
+.lit-head{padding:15px 17px;cursor:pointer}
+.lit-title{
+  font-family:var(--serif);font-size:18px;font-weight:600;margin:0 0 5px;
+  line-height:1.25;
+}
+.lit-meta{
+  color:var(--dim);font-size:12.5px;font-family:var(--mono);
+  display:flex;flex-wrap:wrap;gap:5px 12px;
+}
+.lit-meta b{color:#c3bfb6;font-weight:600}
+.lit-kind{
+  display:inline-block;font-size:10.5px;text-transform:uppercase;
+  letter-spacing:.09em;padding:2px 7px;border-radius:4px;margin-left:8px;
+  vertical-align:2px;font-family:var(--mono);
+}
+.lit-kind.gothic{background:#2a1013;color:#e09a92;border:1px solid #4a1c20}
+.lit-kind.victorian{background:#131f2a;color:#8fc0e0;border:1px solid #1e3346}
+.lit-kind.russian{background:#1a1410;color:#d8a878;border:1px solid #33261a}
+.lit-kind.romance{background:#1a1420;color:#b49ae0;border:1px solid #2e2340}
+.lit-kind.regency{background:#141a14;color:#9fd0a0;border:1px solid #22331f}
+.lit-kind.industrial{background:#201a10;color:#d8c088;border:1px solid #362c1a}
+.lit-kind.sensation{background:#101a1a;color:#8fd0c8;border:1px solid #1a2e2c}
+.lit-kind.sea{background:#0f1620;color:#85a8cc;border:1px solid #182838}
+.lit-kind.adventure{background:#1c1a10;color:#c8bc88;border:1px solid #2e2a18}
+.lit-foods{
+  display:flex;flex-wrap:wrap;gap:5px;margin-top:9px;
+}
+.lit-food{
+  font-size:11.5px;background:#141418;border:1px solid var(--line);
+  border-radius:5px;padding:2px 8px;color:var(--dim);font-family:var(--mono);
+}
+.lit-body{
+  display:none;padding:0 17px 18px;border-top:1px solid var(--line);
+}
+.lit.open .lit-body{display:block}
+.lit.open .lit-title{color:var(--amber)}
+.lit-passage{
+  font-family:var(--serif);font-size:15px;line-height:1.72;color:#c9c5bc;
+  margin:16px 0 0;max-width:66ch;
+}
+.lit-passage::before{content:'"';color:var(--amber-dim);font-size:28px;line-height:0;vertical-align:-6px;margin-right:2px}
+.lit-passage::after{content:'"';color:var(--amber-dim);font-size:28px;line-height:0;vertical-align:-8px;margin-left:2px}
+.lit-cite{
+  display:block;margin-top:12px;font-family:var(--mono);font-size:11.5px;
+  color:var(--dim2);
+}
+.lit-why{
+  margin-top:14px;font-size:13.5px;color:var(--dim);border-left:2px solid
+  var(--line);padding-left:12px;max-width:66ch;
+}
 
 /* ---------- era rail ---------- */
 .era-rail-wrap{position:relative}
@@ -594,6 +701,15 @@ footer a:hover{text-decoration:underline}
   .presets button{padding:5px 8px;font-size:11.5px}
   .pp-head{flex-direction:column;align-items:flex-start;gap:6px}
   .byline{font-size:11.5px}
+  /* the fiction tab has its own two chip rows plus a food strip */
+  .tab{font-size:14.5px;padding:8px 10px 9px}
+  .food-strip{gap:5px;max-height:none}
+  .food-chip{padding:4px 9px;font-size:12px}
+  .lit-head{padding:13px 14px}
+  .lit-title{font-size:16.5px}
+  .lit-body{padding:0 14px 16px}
+  .lit-passage{font-size:14.5px;line-height:1.68}
+  .lit-kind{margin-left:0;display:inline-block;margin-top:4px}
 }
 @media(max-width:380px){
   .score{min-width:64px;font-size:11px}
@@ -616,8 +732,14 @@ footer a:hover{text-decoration:underline}
 
 <div class="wrap">
 
+  <!-- ============================ TABS ============================ -->
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-tab="recipes">Recipes</button>
+    <button class="tab" data-tab="fiction">Fiction &amp; Fear</button>
+  </div>
+
   <!-- ============================ ERA RAIL ============================ -->
-  <div class="era-rail-wrap">
+  <div class="era-rail-wrap" id="recipesTab">
     <div class="era-rail" id="eraRail"></div>
   </div>
 
@@ -628,6 +750,10 @@ footer a:hover{text-decoration:underline}
     <div class="tb-group">
       <span class="tb-label">Era</span>
       <div class="seg" id="eraSeg"></div>
+    </div>
+    <div class="tb-group" id="cuisineGroup">
+      <span class="tb-label">Cuisine</span>
+      <div class="seg" id="cuisineSeg"></div>
     </div>
     <div class="tb-group" style="margin-left:auto">
       <button class="ghost" id="pantryToggle">My pantry</button>
@@ -652,6 +778,27 @@ footer a:hover{text-decoration:underline}
 
   <div class="count" id="count"></div>
   <div id="results"></div>
+
+  <!-- ============================ FICTION & FEAR ============================ -->
+  <div id="fictionTab" style="display:none">
+    <div class="era-blurb" id="fictionBlurb"></div>
+    <div class="toolbar">
+      <div class="tb-group">
+        <span class="tb-label">Genre</span>
+        <div class="seg" id="kindSeg"></div>
+      </div>
+      <div class="tb-group">
+        <span class="tb-label">Book</span>
+        <div class="seg" id="bookSeg"></div>
+      </div>
+      <div class="tb-group" style="margin-left:auto">
+        <button class="ghost" id="foodBtn">All foods</button>
+      </div>
+    </div>
+    <div class="food-strip" id="foodStrip"></div>
+    <div class="count" id="fictionCount"></div>
+    <div id="fictionResults"></div>
+  </div>
 
 </div>
 
@@ -687,11 +834,16 @@ const ERA_BY_KEY = Object.fromEntries(ERAS.map(e => [e.key, e]));
 const STORE_KEY = 'historical-kitchen-pantry-v1';
 let state = {
   era: 'all',
+  cuisine: 'all',
   portions: 4,
   sort: 'match',
   onlyHave: false,
   pantry: new Set(),
   open: new Set(),
+  tab: 'recipes',
+  kind: 'all',
+  book: 'all',
+  food: '',
 };
 let pantryLoaded = false;
 
@@ -871,9 +1023,38 @@ function renderEraSeg(){
   for(const e of ERAS) mk(e.label, e.key);
 }
 
+/* ---------------- cuisine axis ----------------
+   A second way in: not "when" but "where".  Each recipe carries a
+   cuisine family, derived from its region string at build time. */
+const CUISINE_LIST = __CUISINES__;
+
+function renderCuisineSeg(){
+  const seg = document.getElementById('cuisineSeg');
+  if(!seg) return;
+  seg.innerHTML = '';
+  const mk = (label, val, n) => {
+    const b = el('button', state.cuisine===val?'on':'');
+    b.textContent = n ? label + ' (' + n + ')' : label;
+    b.onclick = () => { state.cuisine = val; renderAll(); };
+    seg.appendChild(b);
+  };
+  mk('Any','all');
+  for(const c of CUISINE_LIST) mk(c.label, c.key, c.n);
+}
+
 function renderEraBlurb(){
   const box = document.getElementById('eraBlurb');
   box.innerHTML = '';
+  if(state.cuisine !== 'all'){
+    const c = CUISINE_LIST.find(x => x.key === state.cuisine);
+    box.innerHTML = '<h2>' + esc(state.cuisine) + '</h2>' +
+      '<div class="span">' + (c ? c.n : 0) + ' recipes</div>' +
+      '<p>' + esc(c ? c.blurb : '') + ' Where the era tells you when a ' +
+      'dish was cooked, the cuisine tells you what it was cooking &mdash; ' +
+      'and for a hundred years of European food writing those were ' +
+      'different questions with different answers.</p>';
+    return;
+  }
   if(state.era === 'all'){
     box.innerHTML = '<h2>All eras</h2><div class="span">c. 2000 BCE - 1946</div>' +
       '<p>Every recipe in the collection. Pick an era above to narrow it down — ' +
@@ -922,6 +1103,9 @@ function renderResults(){
   const countEl = document.getElementById('count');
 
   let list = RECIPES.filter(r => state.era === 'all' || r.era === state.era);
+  if(state.cuisine !== 'all'){
+    list = list.filter(r => r.cuisine === state.cuisine);
+  }
   const scored = sortRecipes(list);
   const filtered = state.onlyHave ? scored.filter(x => x.s.missingHard === 0) : scored;
 
@@ -999,7 +1183,7 @@ function renderCard(r, s){
   meta.innerHTML =
     '<span>' + esc(ERA_BY_KEY[r.era].label) + '</span>' +
     '<span><b>' + esc(r.year) + '</b></span>' +
-    '<span>' + esc(r.region) + '</span>' +
+    '<span>' + esc(r.cuisine || r.region) + '</span>' +
     '<span>' + esc(r.source.split(',')[0]) + '</span>';
   ch.appendChild(meta);
   head.appendChild(ch);
@@ -1164,9 +1348,216 @@ function buildBody(body, r, s){
   body.appendChild(ps);
 }
 
+/* ---------------- fiction & fear ----------------
+   The novels are not a cookbook.  They are the other kind of evidence:
+   what was served, in what room, to what mood.  We keep them separate
+   and honest about what they are. */
+const FICTION = __FICTION__;
+
+const KIND_LABEL = {
+  gothic: 'Gothic', victorian: 'Victorian', russian: 'Russian',
+  romance: 'Romance', regency: 'Regency', industrial: 'Industrial',
+  sensation: 'Sensation', sea: 'Sea', adventure: 'Adventure',
+};
+
+function fictionBooks(){
+  const b = {};
+  for(const s of FICTION) b[s.book] = (b[s.book]||0) + 1;
+  return Object.keys(b).sort((a,c) => b[c]-b[a] || a.localeCompare(b));
+}
+
+function renderKindSeg(){
+  const seg = document.getElementById('kindSeg');
+  seg.innerHTML = '';
+  const kinds = {};
+  for(const s of FICTION) kinds[s.kind] = (kinds[s.kind]||0) + 1;
+  const mk = (label, val) => {
+    const b = el('button', state.kind===val?'on':'');
+    b.textContent = label;
+    b.onclick = () => { state.kind = val; state.book='all'; renderFiction(); };
+    seg.appendChild(b);
+  };
+  mk('All','all');
+  const order = ['gothic','victorian','russian','romance','regency',
+                 'industrial','sensation','sea','adventure'];
+  for(const k of order){
+    if(!kinds[k]) continue;
+    mk(KIND_LABEL[k]||k, k);
+  }
+}
+
+function renderBookSeg(){
+  const seg = document.getElementById('bookSeg');
+  seg.innerHTML = '';
+  const mk = (label, val) => {
+    const b = el('button', state.book===val?'on':'');
+    b.textContent = label;
+    b.onclick = () => { state.book = val; renderFiction(); };
+    seg.appendChild(b);
+  };
+  mk('All books','all');
+  const books = fictionBooks();
+  for(const bk of books){
+    if(state.kind !== 'all'){
+      const inKind = FICTION.some(s => s.book===bk && s.kind===state.kind);
+      if(!inKind) continue;
+    }
+    mk(bk, bk);
+  }
+}
+
+function renderFoodStrip(){
+  const host = document.getElementById('foodStrip');
+  host.innerHTML = '';
+  const foods = {};
+  let pool = FICTION;
+  if(state.kind !== 'all') pool = pool.filter(s => s.kind===state.kind);
+  if(state.book !== 'all') pool = pool.filter(s => s.book===state.book);
+  for(const s of pool) for(const f of s.foods) foods[f] = (foods[f]||0) + 1;
+  const top = Object.keys(foods).sort((a,b) => foods[b]-foods[a]).slice(0, 44);
+  for(const f of top){
+    const chip = el('div','food-chip' + (state.food===f?' on':''));
+    chip.textContent = f + ' · ' + foods[f];
+    chip.onclick = () => { state.food = state.food===f ? '' : f; renderFiction(); };
+    host.appendChild(chip);
+  }
+}
+
+function renderFictionBlurb(){
+  const box = document.getElementById('fictionBlurb');
+  if(state.book !== 'all'){
+    const s = FICTION.find(x => x.book===state.book);
+    const au = s ? s.author : '', yr = s ? s.year : '';
+    box.innerHTML = '<h2>' + esc(state.book) + '</h2>' +
+      '<div class="span">' + esc(au) + ' &middot; ' + esc(String(yr)) + '</div>' +
+      '<p>Every food scene found in the text. The book is the source, and ' +
+      'the passages are quoted exactly as they stand.</p>';
+    return;
+  }
+  if(state.kind !== 'all'){
+    const n = FICTION.filter(s => s.kind===state.kind).length;
+    const blurb = {
+      gothic: 'Gothic fiction ate well and drank better. The vampire ' +
+              'novel is full of the table: the last supper before the ' +
+              'seduction, the tea that precedes the murder, the feast ' +
+              'that is really a farewell.',
+      victorian: 'The great age of the English novel, and with it the ' +
+                 'great age of the English dinner. Pudding, port, and ' +
+                 'the industrial kitchens that made both possible.',
+      russian: 'Tolstoy and the Russian table: the borscht, the samovar, ' +
+               'the long meal that is really a way of talking about the ' +
+               'soul.',
+      romance: 'France and the feuilleton: the suppers, the duels over ' +
+               'the last slice, and the mysterious wine that turns out ' +
+               'to have been poisoned.',
+      regency: 'Austen and the table as a test of character. It is all ' +
+               'in the servants, the tea, and who gets invited to dinner.',
+      industrial: 'Gaskell and the northern industrial towns: ' +
+                  'manufactured food, poverty, and the dinner that says ' +
+                  'everything about who has money.',
+      sensation: 'The detective novel, and the food that frames the ' +
+                 'body. A poisoned dinner, a missing dish, a household ' +
+                 'that eats together because it has to.',
+      sea: 'Moby-Dick and the sea: salt beef, hardtack, and the ' +
+           'sufficiency of ship stores.',
+      adventure: 'Defoe and Stevenson: the provisions of a shipwreck, ' +
+                 'the picnic on a beach, and food as the whole of ' +
+                 'survival.',
+    }[state.kind] || '';
+    box.innerHTML = '<h2>' + esc(KIND_LABEL[state.kind]||state.kind) + '</h2>' +
+      '<div class="span">' + n + ' food scenes</div><p>' + esc(blurb) + '</p>';
+    return;
+  }
+  box.innerHTML = '<h2>Fiction &amp; Fear</h2>' +
+    '<div class="span">' + FICTION.length + ' food scenes from ' +
+    fictionBooks().length + ' books</div>' +
+    '<p>What the great novels of the period put on the table. These are ' +
+    'not recipes &mdash; they are the evidence around them: the supper ' +
+    'before the vampire arrives, the borscht in the Russian novels, the ' +
+    'pudding that hides a clue. Read the passages, pick out the dishes, ' +
+    'then go and cook them from the recipe tab.</p>';
+}
+
+function renderFiction(){
+  renderFictionBlurb();
+  renderKindSeg();
+  renderBookSeg();
+  renderFoodStrip();
+  const host = document.getElementById('fictionResults');
+  host.innerHTML = '';
+  const countEl = document.getElementById('fictionCount');
+
+  let list = FICTION;
+  if(state.kind !== 'all') list = list.filter(s => s.kind===state.kind);
+  if(state.book !== 'all') list = list.filter(s => s.book===state.book);
+  if(state.food) list = list.filter(s => s.foods.includes(state.food));
+
+  countEl.innerHTML = list.length + ' passage' + (list.length===1?'':'s') +
+    (state.food ? ' mentioning ' + esc(state.food) : '');
+
+  if(!list.length){
+    host.appendChild(el('div','empty','No passages match that filter.'));
+    return;
+  }
+
+  // Over a thousand passages at once is slow on a phone. Render the
+  // first batch and let the reader pull the rest in.
+  const BATCH = 50;
+  let shown = 0;
+  const more = el('div','empty');
+  more.style.cssText = 'padding:16px;cursor:pointer';
+  more.textContent = 'Tap for more passages';
+
+  const paint = () => {
+    const slice = list.slice(shown, shown + BATCH);
+    for(const s of slice){
+      const card = el('div','lit');
+      const head = el('div','lit-head');
+      const t = el('h3','lit-title');
+      t.innerHTML = esc(s.book) + '<span class="lit-kind ' + s.kind + '">' +
+        esc(KIND_LABEL[s.kind]||s.kind) + '</span>';
+      head.appendChild(t);
+      const meta = el('div','lit-meta');
+      meta.innerHTML = '<span>' + esc(s.author) + '</span>' +
+        '<span><b>' + esc(String(s.year)) + '</b></span>' +
+        (s.chapter ? '<span>' + esc(s.chapter) + '</span>' : '') +
+        '<span>' + s.foods.length + ' foods</span>';
+      head.appendChild(meta);
+      const chips = el('div','lit-foods');
+      for(const f of s.foods.slice(0,7)){
+        chips.appendChild(el('span','lit-food', esc(f)));
+      }
+      head.appendChild(chips);
+      head.onclick = () => card.classList.toggle('open');
+      card.appendChild(head);
+
+      const body = el('div','lit-body');
+      body.appendChild(el('blockquote','lit-passage', esc(s.text)));
+      const cite = el('span','lit-cite');
+      cite.textContent = s.book + ' — ' + s.author + ', ' + s.year +
+        (s.chapter ? ', ' + s.chapter : '');
+      body.appendChild(cite);
+      card.appendChild(body);
+      host.appendChild(card);
+    }
+    shown += slice.length;
+    if(shown < list.length){
+      more.textContent = 'Tap for more passages (' + shown + ' of ' +
+        list.length + ')';
+      more.style.display = '';
+    } else {
+      more.style.display = 'none';
+    }
+  };
+  more.onclick = paint;
+  paint();
+  host.appendChild(more);
+}
+
 function renderAll(){
   renderEraRail();
   renderEraSeg();
+  renderCuisineSeg();
   renderEraBlurb();
   renderPantry();
   renderResults();
@@ -1175,6 +1566,31 @@ function renderAll(){
 /* ---------------- init ---------------- */
 function init(){
   loadPantry();
+  // tabs
+  const tabs = document.getElementById('tabs');
+  tabs.querySelectorAll('.tab').forEach(t => {
+    t.onclick = () => {
+      state.tab = t.dataset.tab;
+      tabs.querySelectorAll('.tab').forEach(x =>
+        x.classList.toggle('on', x === t));
+      const isRec = state.tab === 'recipes';
+      document.getElementById('recipesTab').style.display =
+        isRec ? '' : 'none';
+      // the era blurb and toolbar live in the recipes column
+      document.getElementById('eraBlurb').style.display =
+        isRec ? '' : 'none';
+      document.querySelectorAll('.toolbar')[0].style.display =
+        isRec ? '' : 'none';
+      document.getElementById('count').style.display =
+        isRec ? '' : 'none';
+      document.getElementById('results').style.display =
+        isRec ? '' : 'none';
+      document.getElementById('fictionTab').style.display =
+        isRec ? 'none' : '';
+      if(!isRec) renderFiction();
+      window.scrollTo({top:0, behavior:'smooth'});
+    };
+  });
   document.getElementById('pantryToggle').onclick = () => {
     const p = document.getElementById('pantryPanel');
     p.classList.toggle('open');
@@ -1183,7 +1599,8 @@ function init(){
   };
   document.getElementById('resetBtn').onclick = () => {
     state.pantry = new Set(DEFAULT_PANTRY);
-    state.era = 'all'; state.onlyHave = false; state.sort = 'match';
+    state.era = 'all'; state.cuisine = 'all';
+    state.onlyHave = false; state.sort = 'match';
     savePantry(); renderAll();
   };
   document.getElementById('pantryAll').onclick = () => {
@@ -1210,7 +1627,9 @@ page = (HTML
         .replace("__DEFAULT__", DEFAULT_JSON)
         .replace("__NEAR__", NEAR_JSON)
         .replace("__SUBS__", SUBS_JSON)
-        .replace("__ALIASES__", json.dumps(ALIASES, ensure_ascii=False)))
+        .replace("__ALIASES__", json.dumps(ALIASES, ensure_ascii=False))
+        .replace("__CUISINES__", CUISINES_JSON)
+        .replace("__FICTION__", json.dumps(FICTION, ensure_ascii=False)))
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(page)
 
@@ -1221,12 +1640,12 @@ with open(OUT, "w", encoding="utf-8") as f:
 smoke_fail = []
 for token in ("__ERAS__", "__RECIPES__", "__PANTRY__", "__CATEGORIES__",
               "__DEFAULT__", "__NEAR__", "__SUBS__", "__ALIASES__",
-              "__COUNT__"):
+              "__COUNT__", "__FICTION__", "__CUISINES__"):
     if token in page:
         smoke_fail.append(f"unreplaced placeholder {token}")
 
 required_ids = ["ERAS", "RECIPES", "PANTRY", "CATEGORIES", "DEFAULT_PANTRY",
-                "NEAR", "SUBS", "ALIASES"]
+                "NEAR", "SUBS", "ALIASES", "FICTION", "CUISINE_LIST"]
 js = page.split("<script>")[1].split("</script>")[0]
 for ident in required_ids:
     if f"const {ident} = " not in js:
@@ -1236,7 +1655,9 @@ for ident in required_ids:
 for fn in ["renderAll", "renderPantry", "renderResults", "renderEraRail",
            "renderCard", "buildBody", "scoreRecipe", "fmtQty", "has",
            "savePantry", "loadPantry", "nearEquivalents", "subFor",
-           "renderEraBlurb", "renderEraSeg"]:
+           "renderEraBlurb", "renderEraSeg", "renderCuisineSeg",
+           "renderFiction", "renderKindSeg", "renderBookSeg",
+           "renderFoodStrip", "renderFictionBlurb", "fictionBooks"]:
     if f"function {fn}(" not in js:
         smoke_fail.append(f"function {fn}() missing")
 

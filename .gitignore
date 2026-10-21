@@ -1,2 +1,15 @@
 __pycache__/
 *.pyc
+
+# The downloaded Project Gutenberg source texts are large (56 MB) and
+# fully reproducible from fetch_sources.py + the ids in the extraction
+# scripts. Keep them out of the repository; the app only needs the
+# generated JSON.
+data/sources/
+
+# Raw intermediate between extraction and conversion. The converted
+# files (region_generated.json, novels_generated.json) are the ones
+# the build reads and those ARE committed, so the site can be rebuilt
+# without re-running the extractors.
+region_raw.json
+novels_food.json
