@@ -228,6 +228,57 @@ DEFAULT_JSON = json.dumps(sorted(set(DEFAULT_PANTRY)))
 NEAR_JSON = json.dumps(NEAR_EQUIVALENTS, ensure_ascii=False)
 SUBS_JSON = json.dumps(SUBSTITUTES, ensure_ascii=False)
 
+# ---------------------------------------------------------------- sources
+# The corpus comes from five very different places.  Without a filter for
+# it, a reader hunting for Ramsay's recipes has no way to find them:
+# every one of his 170 sits in "post-war / British & Irish", buried among
+# 1,681 cards with no text search.  Group by where the recipe came from
+# so each body of work is one click away.
+SOURCE_ORDER = [
+    ("curated", "Curated primaries"),
+    ("escoffier", "Escoffier 1903"),
+    ("tasting", "Tasting History"),
+    ("country", "Country cookery"),
+    ("ramsay", "Gordon Ramsay"),
+]
+
+SOURCE_BLURB = {
+    "curated": "The founding set: Apicius, Forme of Cury, Acton, Beeton, "
+               "Child and the Roman and medieval tablets, transcribed by "
+               "hand with a note on what each one is doing.",
+    "escoffier": "Escoffier's 1903 Le Guide Culinaire: the full 789 "
+                 "numbered recipes, including the ones he invented and the "
+                 "ones he took from the old French canon.",
+    "tasting": "Max Miller's Tasting History, where each recipe is read "
+               "in the context of the place and moment it came from.",
+    "country": "The national cookery books of 1895-1925: foreign dishes, "
+               "the Jewish community volumes, and the country-house "
+               "repertories, in English for English kitchens.",
+    "ramsay": "Gordon Ramsay's own collection, transcribed as he writes "
+              "it. He trained the hard way -- two years on the pass at "
+              "Marco Pierre White's Ritz, then Claridge's -- and it shows "
+              "in how little he leaves to chance.",
+}
+
+
+def source_group(r):
+    """Which body of work a recipe came from."""
+    sid = r.get("id", "")
+    src = (r.get("source") or "").lower()
+    url = (r.get("source_url") or "").lower()
+    if sid.startswith("ramsay") or "gordonramsay" in url or "gordon ramsay" in src:
+        return "ramsay"
+    if sid.startswith("esco") or "escoffier" in src:
+        return "escoffier"
+    if sid.startswith("th-") or src.startswith("tasting history") or "tastinghistory" in url:
+        return "tasting"
+    if sid.startswith("reg-"):
+        return "country"
+    if sid.startswith("gb-"):
+        return "country"
+    return "curated"
+
+
 # Recipes: strip the python-only bits, keep what the page needs.
 ALL_RECIPES = list(RECIPES) + list(GENERATED)
 recs = []
@@ -244,6 +295,7 @@ for r in ALL_RECIPES:
         "cuisine": fam,
         "source": r["source"],
         "source_url": r.get("source_url", ""),
+        "src": source_group(r),
         "servings": r["servings"],
         "tags": r.get("tags", []),
         "confidence": r.get("confidence", "verified"),
@@ -256,6 +308,14 @@ for r in ALL_RECIPES:
         "gloss": r.get("gloss", ""),
     })
 RECIPES_JSON = json.dumps(recs, ensure_ascii=False)
+
+_scount = {}
+for _r in recs:
+    _scount[_r["src"]] = _scount.get(_r["src"], 0) + 1
+SOURCES_JSON = json.dumps(
+    [{"key": k, "label": l, "n": _scount.get(k, 0), "blurb": SOURCE_BLURB.get(k, "")}
+     for k, l in SOURCE_ORDER],
+    ensure_ascii=False)
 
 # Cuisine families with their blurbs, for the filter panel.
 _cfam = {}
@@ -447,6 +507,20 @@ h1{
   font-size:11.5px;background:#141418;border:1px solid var(--line);
   border-radius:5px;padding:2px 8px;color:var(--dim);font-family:var(--mono);
 }
+/* The scene excerpt: the card shows the eating, not just the tags. */
+.lit-excerpt{
+  margin-top:11px;padding:10px 12px;border-left:2px solid var(--amber-dim);
+  background:#101017;border-radius:0 6px 6px 0;
+}
+.lit-ex-label{
+  display:block;font-size:9.5px;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--amber-dim);font-family:var(--mono);
+  margin-bottom:5px;
+}
+.lit-ex-text{
+  font-family:var(--serif);font-size:14.5px;line-height:1.62;
+  color:#c4c0b7;margin:0;
+}
 .lit-body{
   display:none;padding:0 17px 18px;border-top:1px solid var(--line);
 }
@@ -500,10 +574,24 @@ h1{
   background:var(--bg2); border:1px solid var(--line); border-radius:11px;
   padding:13px 15px; margin-bottom:18px; position:sticky; top:0; z-index:40;
   backdrop-filter:blur(8px);
+  min-width:0;
 }
-.tb-group{display:flex;align-items:center;gap:8px}
-.tb-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim2);font-family:var(--mono)}
-.seg{display:flex;background:var(--bg3);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+/* Each group holds a chip row.  The chip rows can be long -- there are
+   ten eras and twenty-three cuisines -- so they get a bounded width
+   and scroll sideways rather than pushing the page wide. */
+.tb-group{
+  display:flex;align-items:center;gap:8px;
+  min-width:0; max-width:100%;
+}
+.tb-label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim2);font-family:var(--mono);flex:0 0 auto}
+.seg{
+  display:flex;background:var(--bg3);border:1px solid var(--line);
+  border-radius:8px;overflow-x:auto;overflow-y:hidden;
+  max-width:100%; min-width:0;
+  scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+}
+.seg::-webkit-scrollbar{height:5px}
+.seg::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .seg button{
   background:none;border:none;color:var(--dim);font-family:var(--mono);font-size:12.5px;
   padding:6px 10px;cursor:pointer;border-right:1px solid var(--line);
@@ -512,6 +600,16 @@ h1{
 .seg button:last-child{border-right:none}
 .seg button:hover{color:var(--fg);background:#1e1e27}
 .seg button.on{background:var(--amber);color:#17120a;font-weight:700}
+/* The filter groups share the row and each scrolls internally; the
+   pantry/reset buttons stay put on the right.  Without this the cuisine
+   row pushes the document wider than the viewport.
+
+   These are class selectors, not :nth-child, because the number of
+   groups changes: the search row is one, and the source row made three. */
+.toolbar > .tb-scroll{
+  flex:1 1 0; min-width:0; overflow:hidden;
+}
+.toolbar > .tb-actions{flex:0 0 auto; margin-left:auto}
 .ghost{
   background:var(--bg3);border:1px solid var(--line);color:var(--dim);
   border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;font-family:var(--sans);
@@ -666,12 +764,24 @@ ol.method li::marker{color:var(--amber);font-family:var(--mono);font-size:12px}
 footer{border-top:1px solid var(--line);margin-top:34px;padding-top:20px;color:var(--dim2);font-size:12.5px}
 footer a{color:var(--amber);text-decoration:none}
 footer a:hover{text-decoration:underline}
-.srch{
-  width:100%;max-width:300px;background:var(--bg3);border:1px solid var(--line);
-  border-radius:8px;padding:7px 11px;color:var(--fg);font-family:var(--sans);font-size:13.5px;
+/* ---------- search ----------
+   The search row lives inside the sticky toolbar as its own full-width
+   line, so it stays reachable while you scroll a screenful of results. */
+.toolbar > .tb-search{
+  flex:1 1 100%; min-width:0; display:flex; align-items:center; gap:9px;
 }
-.srch:focus{outline:none;border-color:var(--amber)}
+.srch{
+  flex:1 1 auto; min-width:0; max-width:560px;
+  background:var(--bg3);border:1px solid var(--line);
+  border-radius:8px;padding:8px 12px;color:var(--fg);
+  font-family:var(--sans);font-size:15px;
+}
+.srch:focus{outline:none;border-color:var(--amber);box-shadow:0 0 0 2px rgba(224,163,78,.14)}
 .srch::placeholder{color:var(--dim2)}
+.srch::-webkit-search-cancel-button{-webkit-appearance:none}
+mark{background:rgba(224,163,78,.22);color:#f2cd90;border-radius:3px;padding:0 1px}
+.ch-hit{font-size:11.5px;color:var(--dim2);font-family:var(--mono);margin-top:6px}
+.ch-hit b{color:var(--amber-dim);font-weight:600}
 .empty{padding:34px 16px;text-align:center;color:var(--dim2);font-size:14px}
 .hidden{display:none !important}
 
@@ -687,7 +797,13 @@ footer a:hover{text-decoration:underline}
   .tb-group .seg{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
   .tb-group .seg::-webkit-scrollbar{height:0}
   .toolbar{flex-wrap:wrap;min-width:0}
-  .toolbar > .tb-group:last-child{margin-left:auto !important;flex:0 0 auto}
+  /* On a phone each filter row gets a line of its own.  Sharing one
+     line squeezes CUISINE down to two letters, and the desktop rule
+     that makes the three rows share space is more specific than the
+     generic .tb-group rule above, so it has to be undone here. */
+  .toolbar > .tb-search{flex:1 1 100%}
+  .toolbar > .tb-scroll{flex:1 1 100%; overflow:hidden}
+  .toolbar > .tb-actions{margin-left:auto !important;flex:0 0 auto}
   .card-head{padding:13px 14px;gap:10px}
   .ch-title{font-size:17px}
   .score{min-width:74px}
@@ -710,6 +826,8 @@ footer a:hover{text-decoration:underline}
   .lit-body{padding:0 14px 16px}
   .lit-passage{font-size:14.5px;line-height:1.68}
   .lit-kind{margin-left:0;display:inline-block;margin-top:4px}
+  .lit-excerpt{margin-top:9px;padding:9px 10px}
+  .lit-ex-text{font-size:14px;line-height:1.58}
 }
 @media(max-width:380px){
   .score{min-width:64px;font-size:11px}
@@ -738,28 +856,38 @@ footer a:hover{text-decoration:underline}
     <button class="tab" data-tab="fiction">Fiction &amp; Fear</button>
   </div>
 
+  <!-- ============================ TOOLBAR ============================ -->
+  <div class="toolbar">
+    <div class="tb-group tb-search">
+      <span class="tb-label">Search</span>
+      <input type="search" id="q" class="srch" autocomplete="off" spellcheck="false"
+             placeholder="Search recipes, ingredients, books, methods&hellip;">
+      <button class="ghost" id="qClear" style="display:none">Clear</button>
+    </div>
+    <div class="tb-group tb-scroll">
+      <span class="tb-label">Era</span>
+      <div class="seg" id="eraSeg"></div>
+    </div>
+    <div class="tb-group tb-scroll" id="cuisineGroup">
+      <span class="tb-label">Cuisine</span>
+      <div class="seg" id="cuisineSeg"></div>
+    </div>
+    <div class="tb-group tb-scroll" id="sourceGroup">
+      <span class="tb-label">Source</span>
+      <div class="seg" id="sourceSeg"></div>
+    </div>
+    <div class="tb-group tb-actions">
+      <button class="ghost" id="pantryToggle">My pantry</button>
+      <button class="ghost" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
   <!-- ============================ ERA RAIL ============================ -->
   <div class="era-rail-wrap" id="recipesTab">
     <div class="era-rail" id="eraRail"></div>
   </div>
 
   <div class="era-blurb" id="eraBlurb"></div>
-
-  <!-- ============================ TOOLBAR ============================ -->
-  <div class="toolbar">
-    <div class="tb-group">
-      <span class="tb-label">Era</span>
-      <div class="seg" id="eraSeg"></div>
-    </div>
-    <div class="tb-group" id="cuisineGroup">
-      <span class="tb-label">Cuisine</span>
-      <div class="seg" id="cuisineSeg"></div>
-    </div>
-    <div class="tb-group" style="margin-left:auto">
-      <button class="ghost" id="pantryToggle">My pantry</button>
-      <button class="ghost" id="resetBtn">Reset</button>
-    </div>
-  </div>
 
   <!-- ============================ PANTRY ============================ -->
   <div class="pantry-panel" id="pantryPanel">
@@ -783,15 +911,21 @@ footer a:hover{text-decoration:underline}
   <div id="fictionTab" style="display:none">
     <div class="era-blurb" id="fictionBlurb"></div>
     <div class="toolbar">
-      <div class="tb-group">
+      <div class="tb-group tb-search">
+        <span class="tb-label">Search</span>
+        <input type="search" id="fq" class="srch" autocomplete="off" spellcheck="false"
+               placeholder="Search passages, books, authors, foods&hellip;">
+        <button class="ghost" id="fqClear" style="display:none">Clear</button>
+      </div>
+      <div class="tb-group tb-scroll">
         <span class="tb-label">Genre</span>
         <div class="seg" id="kindSeg"></div>
       </div>
-      <div class="tb-group">
+      <div class="tb-group tb-scroll">
         <span class="tb-label">Book</span>
         <div class="seg" id="bookSeg"></div>
       </div>
-      <div class="tb-group" style="margin-left:auto">
+      <div class="tb-group tb-actions">
         <button class="ghost" id="foodBtn">All foods</button>
       </div>
     </div>
@@ -835,6 +969,7 @@ const STORE_KEY = 'historical-kitchen-pantry-v1';
 let state = {
   era: 'all',
   cuisine: 'all',
+  source: 'all',
   portions: 4,
   sort: 'match',
   onlyHave: false,
@@ -844,8 +979,17 @@ let state = {
   kind: 'all',
   book: 'all',
   food: '',
+  q: '',
+  fq: '',
 };
 let pantryLoaded = false;
+
+/* What the current search matched, kept here so the card renderer can
+   highlight the title and say which field the hit came from. */
+let RECIPE_HITS = null;
+let RECIPE_WORDS = [];
+let FICTION_HITS = null;
+let FICTION_WORDS = [];
 
 function loadPantry(){
   try{
@@ -963,7 +1107,16 @@ function scoreRecipe(r){
 }
 function sortRecipes(list){
   const scored = list.map(r => ({r, s: scoreRecipe(r)}));
-  if(state.sort === 'match'){
+  if(state.sort === 'relevance' && RECIPE_HITS){
+    // With a query active, the best match is the best answer to the
+    // question -- not the best fit for the pantry.  The pantry
+    // percentage breaks ties.
+    scored.sort((a,b) => {
+      const ha = RECIPE_HITS.get(a.r.id), hb = RECIPE_HITS.get(b.r.id);
+      const sa = ha ? ha.score : 0, sb = hb ? hb.score : 0;
+      return sb - sa || b.s.pct - a.s.pct || a.r.year.localeCompare(b.r.year);
+    });
+  } else if(state.sort === 'match'){
     scored.sort((a,b) => b.s.pct - a.s.pct || a.r.year.localeCompare(b.r.year));
   } else if(state.sort === 'era'){
     scored.sort((a,b) => {
@@ -974,6 +1127,166 @@ function sortRecipes(list){
     scored.sort((a,b) => a.r.title.localeCompare(b.r.title));
   }
   return scored;
+}
+
+/* ---------------- search ----------------
+   A plain text search over the whole corpus.  Two things make it
+   usable rather than decorative:
+
+   1. It is accent- and case-blind, so "crecy" finds "Crécy" and
+      "goulash" finds "Goulash" however the spelling drifts.
+   2. It says *why* a card matched.  A recipe that appears because
+      "paprika" is in its title is a different result from one that
+      appears because "paprika" is in its method, and the reader is
+      owed the difference. */
+const COMBINING = /[\u0300-\u036f]/g;
+
+/* Fold one string: strip diacritics, lower-case.  "Crécy" -> "crecy",
+   "Pâté" -> "pate", "Ōlives" -> "olives". */
+function foldText(s){
+  return Array.from(String(s == null ? '' : s))
+    .map(c => c.normalize('NFD').replace(COMBINING, '').toLowerCase())
+    .join('');
+}
+
+/* The same fold, but keeping a map back to the original so a match can
+   be highlighted in the text as it was actually written. */
+function foldMap(s){
+  const cps = Array.from(String(s == null ? '' : s));
+  const starts = new Array(cps.length);
+  let off = 0;
+  for(let i = 0; i < cps.length; i++){ starts[i] = off; off += cps[i].length; }
+  let folded = '';
+  const f2o = [];
+  for(let i = 0; i < cps.length; i++){
+    const f = foldText(cps[i]);
+    for(let k = 0; k < f.length; k++){ folded += f[k]; f2o.push(i); }
+  }
+  return {folded: folded, f2o: f2o, starts: starts, cps: cps};
+}
+
+function reEsc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+/* Split a query into folded tokens.  Every token has to match
+   somewhere -- "duck egg" means both words, not either. */
+function searchTokens(q){
+  return String(q == null ? '' : q).split(/\s+/)
+    .map(foldText).filter(t => t.length);
+}
+
+/* Highlight the tokens inside a string, in its own spelling. */
+function highlightFold(text, toks){
+  if(!toks || !toks.length) return esc(text);
+  const fm = foldMap(text);
+  const re = new RegExp('(' + toks.map(reEsc).join('|') + ')', 'g');
+  const ranges = [];
+  let m;
+  while((m = re.exec(fm.folded)) !== null){
+    if(m[0].length === 0){ re.lastIndex++; continue; }
+    const a = m.index, b = m.index + m[0].length;
+    const oStart = fm.starts[fm.f2o[a]];
+    const oEnd = fm.starts[fm.f2o[b-1]] + fm.cps[fm.f2o[b-1]].length;
+    ranges.push([oStart, oEnd]);
+  }
+  if(!ranges.length) return esc(text);
+  ranges.sort((x, y) => x[0] - y[0]);
+  let out = '', last = 0;
+  for(const [s, e] of ranges){
+    if(s < last) continue;
+    out += esc(text.slice(last, s)) + '<mark>' + esc(text.slice(s, e)) + '</mark>';
+    last = e;
+  }
+  return out + esc(text.slice(last));
+}
+
+/* ---- recipe index ----
+   Built once, on the first keystroke, then kept. */
+let RECIPE_INDEX = null;
+function recipeIndex(){
+  if(RECIPE_INDEX) return RECIPE_INDEX;
+  RECIPE_INDEX = RECIPES.map(r => ({
+    id: r.id,
+    t: foldText(r.title),
+    i: foldText((r.ingredients || []).map(x => x.name).join(' ; ')),
+    s: foldText(r.source),
+    m: foldText([r.region, r.cuisine, r.year, (r.tags || []).join(' ')].join(' ')),
+    b: foldText([(r.method || []).join(' '), r.history || '', r.gloss || ''].join(' '))
+  }));
+  return RECIPE_INDEX;
+}
+
+/* Score a recipe against the tokens.  Weight by where the hit landed:
+   a title match is the recipe itself, a method match is a mention. */
+function searchRecipes(q){
+  const toks = searchTokens(q);
+  if(!toks.length) return null;
+  const idx = recipeIndex();
+  const hits = new Map();
+  for(const r of idx){
+    let score = 0;
+    const fields = new Set();
+    let ok = true;
+    for(const t of toks){
+      let best = 0, where = null;
+      if(r.t.indexOf(t) !== -1){ best = 100; where = 'title'; }
+      if(r.i.indexOf(t) !== -1 && 45 > best){ best = 45; where = 'ingredients'; }
+      if(r.m.indexOf(t) !== -1 && 30 > best){ best = 30; where = 'era/region'; }
+      if(r.s.indexOf(t) !== -1 && 25 > best){ best = 25; where = 'source'; }
+      if(r.b.indexOf(t) !== -1 && 10 > best){ best = 10; where = 'method/story'; }
+      if(best === 0){ ok = false; break; }
+      score += best;
+      fields.add(where);
+    }
+    if(!ok) continue;
+    // the whole phrase in the title is the strongest signal there is
+    if(r.t.indexOf(toks.join(' ')) !== -1) score += 120;
+    // a token landing in two places is a stronger hit than in one
+    score += Math.max(0, fields.size - 1) * 5;
+    hits.set(r.id, {score: score, fields: Array.from(fields)});
+  }
+  return {tokens: toks, hits: hits};
+}
+
+/* ---- fiction index ----
+   The passages are a different corpus with a different vocabulary:
+   a book, an author, a chapter, the foods named, and the text. */
+let FICTION_INDEX = null;
+function fictionIndex(){
+  if(FICTION_INDEX) return FICTION_INDEX;
+  FICTION_INDEX = FICTION.map(s => ({
+    id: s.id,
+    t: foldText([s.book, s.author || ''].join(' ')),
+    c: foldText(s.chapter || ''),
+    f: foldText((s.foods || []).join(' ')),
+    x: foldText(s.text || '')
+  }));
+  return FICTION_INDEX;
+}
+
+function searchFiction(q){
+  const toks = searchTokens(q);
+  if(!toks.length) return null;
+  const idx = fictionIndex();
+  const hits = new Map();
+  for(const s of idx){
+    let score = 0;
+    const fields = new Set();
+    let ok = true;
+    for(const t of toks){
+      let best = 0, where = null;
+      if(s.t.indexOf(t) !== -1){ best = 100; where = 'book'; }
+      if(s.f.indexOf(t) !== -1 && 60 > best){ best = 60; where = 'foods'; }
+      if(s.c.indexOf(t) !== -1 && 40 > best){ best = 40; where = 'chapter'; }
+      if(s.x.indexOf(t) !== -1 && 15 > best){ best = 15; where = 'passage'; }
+      if(best === 0){ ok = false; break; }
+      score += best;
+      fields.add(where);
+    }
+    if(!ok) continue;
+    score += Math.max(0, fields.size - 1) * 5;
+    hits.set(s.id, {score: score, fields: Array.from(fields)});
+  }
+  return {tokens: toks, hits: hits};
 }
 
 /* ---------------- rendering ---------------- */
@@ -1042,9 +1355,37 @@ function renderCuisineSeg(){
   for(const c of CUISINE_LIST) mk(c.label, c.key, c.n);
 }
 
+/* ---------------- source axis ----------------
+   Where the recipe came from.  Without this the five bodies of work in
+   the corpus are indistinguishable: all 170 of Ramsay's recipes share
+   the era "post-war" and the cuisine "British & Irish", so a reader
+   looking for him gets no handle on them at all. */
+const SOURCE_LIST = __SOURCES__;
+
+function renderSourceSeg(){
+  const seg = document.getElementById('sourceSeg');
+  if(!seg) return;
+  seg.innerHTML = '';
+  const mk = (label, val, n) => {
+    const b = el('button', state.source===val?'on':'');
+    b.textContent = n ? label + ' (' + n + ')' : label;
+    b.onclick = () => { state.source = val; renderAll(); };
+    seg.appendChild(b);
+  };
+  mk('All','all');
+  for(const s of SOURCE_LIST) mk(s.label, s.key, s.n);
+}
+
 function renderEraBlurb(){
   const box = document.getElementById('eraBlurb');
   box.innerHTML = '';
+  if(state.source !== 'all'){
+    const s = SOURCE_LIST.find(x => x.key === state.source);
+    box.innerHTML = '<h2>' + esc(s ? s.label : state.source) + '</h2>' +
+      '<div class="span">' + (s ? s.n : 0) + ' recipes</div>' +
+      '<p>' + esc(s ? s.blurb : '') + '</p>';
+    return;
+  }
   if(state.cuisine !== 'all'){
     const c = CUISINE_LIST.find(x => x.key === state.cuisine);
     box.innerHTML = '<h2>' + esc(state.cuisine) + '</h2>' +
@@ -1106,11 +1447,29 @@ function renderResults(){
   if(state.cuisine !== 'all'){
     list = list.filter(r => r.cuisine === state.cuisine);
   }
+  if(state.source !== 'all'){
+    list = list.filter(r => r.src === state.source);
+  }
+
+  // Text search narrows the list further, and everything the reader
+  // has already chosen (era, cuisine, source) still applies on top.
+  const poolCount = list.length;
+  const sr = state.q.trim() ? searchRecipes(state.q) : null;
+  RECIPE_HITS = sr ? sr.hits : null;
+  RECIPE_WORDS = sr ? sr.tokens : [];
+  if(sr) list = list.filter(r => RECIPE_HITS.has(r.id));
+
   const scored = sortRecipes(list);
   const filtered = state.onlyHave ? scored.filter(x => x.s.missingHard === 0) : scored;
 
-  countEl.innerHTML = filtered.length + ' recipe' + (filtered.length===1?'':'s') +
-    ' shown' + (state.onlyHave ? ' &middot; only what you can make now' : '');
+  if(sr){
+    countEl.innerHTML = filtered.length + ' of ' + poolCount + ' recipe' +
+      (poolCount===1?'':'s') + ' match &ldquo;' + esc(state.q.trim()) + '&rdquo;' +
+      (state.onlyHave ? ' &middot; only what you can make now' : '');
+  } else {
+    countEl.innerHTML = filtered.length + ' recipe' + (filtered.length===1?'':'s') +
+      ' shown' + (state.onlyHave ? ' &middot; only what you can make now' : '');
+  }
 
   // sort control
   const sortBar = el('div','toolbar');
@@ -1118,7 +1477,11 @@ function renderResults(){
   const sg = el('div','tb-group');
   sg.appendChild(el('span','tb-label','Sort'));
   const seg = el('div','seg');
-  for(const [lab,val] of [['Best match','match'],['By era','era'],['A-Z','title']]){
+  const sorts = [['Best match','match'],['By era','era'],['A-Z','title']];
+  // Relevance only means something when there is a query to be
+  // relevant to, so the option appears with the search box.
+  if(sr) sorts.unshift(['Relevance','relevance']);
+  for(const [lab,val] of sorts){
     const b = el('button', state.sort===val?'on':'');
     b.textContent = lab;
     b.onclick = () => { state.sort = val; renderResults(); };
@@ -1127,8 +1490,7 @@ function renderResults(){
   sg.appendChild(seg);
   sortBar.appendChild(sg);
 
-  const og = el('div','tb-group');
-  og.style.marginLeft = 'auto';
+  const og = el('div','tb-group tb-actions');
   const ob = el('button','ghost' + (state.onlyHave?' on':''));
   ob.textContent = 'Only show what I can make';
   ob.onclick = () => { state.onlyHave = !state.onlyHave; renderResults(); };
@@ -1137,8 +1499,10 @@ function renderResults(){
   host.appendChild(sortBar);
 
   if(!filtered.length){
-    host.appendChild(el('div','empty',
-      'No recipes match that filter. Try switching eras, or tick a few more pantry items.'));
+    host.appendChild(el('div','empty', sr
+      ? 'Nothing matches &ldquo;' + esc(state.q.trim()) + '&rdquo;. ' +
+        'Try fewer words, or a different spelling.'
+      : 'No recipes match that filter. Try switching eras, or tick a few more pantry items.'));
     return;
   }
 
@@ -1177,7 +1541,16 @@ function renderCard(r, s){
 
   const head = el('div','card-head');
   const ch = el('div','ch-head');
-  ch.appendChild(el('h3','ch-title', esc(r.title)));
+  // The title is highlighted when a search is running, and the card
+  // says which field the hit came from -- a title match is the recipe
+  // itself, a method match is only a mention.
+  const hit = RECIPE_HITS ? RECIPE_HITS.get(r.id) : null;
+  ch.appendChild(el('h3','ch-title', RECIPE_WORDS.length
+    ? highlightFold(r.title, RECIPE_WORDS)
+    : esc(r.title)));
+  if(hit && hit.fields.length){
+    ch.appendChild(el('div','ch-hit','matched: ' + hit.fields.join(' + ')));
+  }
 
   const meta = el('div','ch-meta');
   meta.innerHTML =
@@ -1363,7 +1736,42 @@ const KIND_LABEL = {
 function fictionBooks(){
   const b = {};
   for(const s of FICTION) b[s.book] = (b[s.book]||0) + 1;
-  return Object.keys(b).sort((a,c) => b[c]-b[a] || a.localeCompare(b));
+  return Object.keys(b).sort((a,c) => b[c]-b[a] || a.localeCompare(c));
+}
+
+/* ---------------- scene excerpt ----------------
+   Pull out the part of the passage where the food actually happens.
+   A passage is a paragraph, and the interesting line is usually not
+   the first one: "Mr. Tulkinghorn glances over his spectacles and
+   begins again lower down" tells you nothing, but three sentences
+   later there is a decanter of wine and some biscuits.
+
+   So: find the sentence that mentions the most foods, and return that
+   sentence plus the one before it for context.  If no food can be
+   located, fall back to the opening of the passage. */
+function sceneExcerpt(text, foods){
+  if(!text) return '';
+  // split into sentences, keeping the terminator
+  const parts = text.match(/[^.!?]+[.!?]+(?:["')\]]+)?\s*|[^.!?]+$/g);
+  if(!parts || parts.length === 0) return text.slice(0, 200);
+  const lower = parts.map(p => p.toLowerCase());
+  const want = (foods || []).map(f => f.toLowerCase());
+  let best = -1, bestScore = 0;
+  for(let i = 0; i < parts.length; i++){
+    let score = 0;
+    for(const w of want){
+      if(!w) continue;
+      if(lower[i].indexOf(w) !== -1) score++;
+    }
+    if(score > bestScore){ bestScore = score; best = i; }
+  }
+  if(best === -1){
+    // no food located -- use the first two sentences
+    return parts.slice(0, 2).join(' ').trim();
+  }
+  const from = best > 0 ? best - 1 : best;
+  const to = Math.min(parts.length, best + 2);
+  return parts.slice(from, to).join(' ').trim();
 }
 
 function renderKindSeg(){
@@ -1492,11 +1900,23 @@ function renderFiction(){
   if(state.book !== 'all') list = list.filter(s => s.book===state.book);
   if(state.food) list = list.filter(s => s.foods.includes(state.food));
 
-  countEl.innerHTML = list.length + ' passage' + (list.length===1?'':'s') +
-    (state.food ? ' mentioning ' + esc(state.food) : '');
+  const fpoolCount = list.length;
+  const sf = state.fq.trim() ? searchFiction(state.fq) : null;
+  FICTION_HITS = sf ? sf.hits : null;
+  FICTION_WORDS = sf ? sf.tokens : [];
+  if(sf) list = list.filter(s => FICTION_HITS.has(s.id));
+
+  countEl.innerHTML = sf
+    ? list.length + ' of ' + fpoolCount + ' passage' + (fpoolCount===1?'':'s') +
+      ' match &ldquo;' + esc(state.fq.trim()) + '&rdquo;' +
+      (state.food ? ' mentioning ' + esc(state.food) : '')
+    : list.length + ' passage' + (list.length===1?'':'s') +
+      (state.food ? ' mentioning ' + esc(state.food) : '');
 
   if(!list.length){
-    host.appendChild(el('div','empty','No passages match that filter.'));
+    host.appendChild(el('div','empty', sf
+      ? 'Nothing matches &ldquo;' + esc(state.fq.trim()) + '&rdquo;. Try fewer words.'
+      : 'No passages match that filter.'));
     return;
   }
 
@@ -1514,9 +1934,15 @@ function renderFiction(){
       const card = el('div','lit');
       const head = el('div','lit-head');
       const t = el('h3','lit-title');
-      t.innerHTML = esc(s.book) + '<span class="lit-kind ' + s.kind + '">' +
+      t.innerHTML = (FICTION_WORDS.length
+        ? highlightFold(s.book, FICTION_WORDS)
+        : esc(s.book)) + '<span class="lit-kind ' + s.kind + '">' +
         esc(KIND_LABEL[s.kind]||s.kind) + '</span>';
       head.appendChild(t);
+      const fhit = FICTION_HITS ? FICTION_HITS.get(s.id) : null;
+      if(fhit && fhit.fields.length){
+        head.appendChild(el('div','ch-hit','matched: ' + fhit.fields.join(' + ')));
+      }
       const meta = el('div','lit-meta');
       meta.innerHTML = '<span>' + esc(s.author) + '</span>' +
         '<span><b>' + esc(String(s.year)) + '</b></span>' +
@@ -1528,6 +1954,21 @@ function renderFiction(){
         chips.appendChild(el('span','lit-food', esc(f)));
       }
       head.appendChild(chips);
+
+      // The card used to show only the book, the chapter and a list of
+      // food words -- with the actual eating hidden behind a tap.  On a
+      // phone that read as a list of titles and tags with nothing to
+      // look at.  So the card now opens with the scene itself: the
+      // sentence or two where the food actually appears, and the
+      // passage follows underneath for anyone who wants the room.
+      const ex = el('div','lit-excerpt');
+      ex.appendChild(el('span','lit-ex-label','The scene'));
+      const excerpt = sceneExcerpt(s.text, s.foods);
+      ex.appendChild(el('p','lit-ex-text', FICTION_WORDS.length
+        ? highlightFold(excerpt, FICTION_WORDS)
+        : esc(excerpt)));
+      head.appendChild(ex);
+
       head.onclick = () => card.classList.toggle('open');
       card.appendChild(head);
 
@@ -1558,12 +1999,55 @@ function renderAll(){
   renderEraRail();
   renderEraSeg();
   renderCuisineSeg();
+  renderSourceSeg();
   renderEraBlurb();
   renderPantry();
   renderResults();
 }
 
 /* ---------------- init ---------------- */
+/* ---------------- search wiring ----------------
+   Typing re-renders the list, so it is debounced: a fast typist should
+   not trigger a re-render per keystroke over a 1,681-card corpus. */
+const SEARCH_TIMERS = {};
+
+function wireSearch(inputId, clearId, stateKey, apply){
+  const input = document.getElementById(inputId);
+  const clear = document.getElementById(clearId);
+  const run = () => {
+    const v = input.value;
+    const had = !!state[stateKey].trim();
+    const has = !!v.trim();
+    state[stateKey] = v;
+    clear.style.display = v ? '' : 'none';
+    apply(had, has);
+  };
+  input.addEventListener('input', () => {
+    clearTimeout(SEARCH_TIMERS[stateKey]);
+    SEARCH_TIMERS[stateKey] = setTimeout(run, 140);
+  });
+  // Enter commits immediately rather than waiting out the debounce.
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      clearTimeout(SEARCH_TIMERS[stateKey]);
+      run();
+    } else if(e.key === 'Escape'){
+      input.value = '';
+      clearTimeout(SEARCH_TIMERS[stateKey]);
+      run();
+      input.blur();
+    }
+  });
+  clear.addEventListener('click', () => {
+    input.value = '';
+    clearTimeout(SEARCH_TIMERS[stateKey]);
+    run();
+    input.focus();
+  });
+  return input;
+}
+
 function init(){
   loadPantry();
   // tabs
@@ -1599,8 +2083,14 @@ function init(){
   };
   document.getElementById('resetBtn').onclick = () => {
     state.pantry = new Set(DEFAULT_PANTRY);
-    state.era = 'all'; state.cuisine = 'all';
+    state.era = 'all'; state.cuisine = 'all'; state.source = 'all';
     state.onlyHave = false; state.sort = 'match';
+    state.q = ''; state.fq = '';
+    const qi = document.getElementById('q'), fqi = document.getElementById('fq');
+    if(qi) qi.value = '';
+    if(fqi) fqi.value = '';
+    document.getElementById('qClear').style.display = 'none';
+    document.getElementById('fqClear').style.display = 'none';
     savePantry(); renderAll();
   };
   document.getElementById('pantryAll').onclick = () => {
@@ -1610,6 +2100,18 @@ function init(){
   document.getElementById('pantryNone').onclick = () => {
     state.pantry = new Set(); savePantry(); renderPantry(); renderResults();
   };
+  // Search boxes.  A query in the recipe box switches the sort to
+  // relevance, because "what did I ask for" outranks "what can I cook
+  // right now" once the reader has asked something.
+  wireSearch('q', 'qClear', 'q', (had, has) => {
+    // Asking a question makes relevance the right order -- but only
+    // from the default sort, so a deliberate choice of era or A-Z
+    // survives the reader typing.
+    if(has && !had && state.sort === 'match') state.sort = 'relevance';
+    if(!has && had && state.sort === 'relevance') state.sort = 'match';
+    renderResults();
+  });
+  wireSearch('fq', 'fqClear', 'fq', () => { renderFiction(); });
   renderAll();
 }
 document.addEventListener('DOMContentLoaded', init);
@@ -1629,6 +2131,7 @@ page = (HTML
         .replace("__SUBS__", SUBS_JSON)
         .replace("__ALIASES__", json.dumps(ALIASES, ensure_ascii=False))
         .replace("__CUISINES__", CUISINES_JSON)
+        .replace("__SOURCES__", SOURCES_JSON)
         .replace("__FICTION__", json.dumps(FICTION, ensure_ascii=False)))
 with open(OUT, "w", encoding="utf-8") as f:
     f.write(page)
@@ -1640,12 +2143,13 @@ with open(OUT, "w", encoding="utf-8") as f:
 smoke_fail = []
 for token in ("__ERAS__", "__RECIPES__", "__PANTRY__", "__CATEGORIES__",
               "__DEFAULT__", "__NEAR__", "__SUBS__", "__ALIASES__",
-              "__COUNT__", "__FICTION__", "__CUISINES__"):
+              "__COUNT__", "__FICTION__", "__CUISINES__", "__SOURCES__"):
     if token in page:
         smoke_fail.append(f"unreplaced placeholder {token}")
 
 required_ids = ["ERAS", "RECIPES", "PANTRY", "CATEGORIES", "DEFAULT_PANTRY",
-                "NEAR", "SUBS", "ALIASES", "FICTION", "CUISINE_LIST"]
+                "NEAR", "SUBS", "ALIASES", "FICTION", "CUISINE_LIST",
+                "SOURCE_LIST"]
 js = page.split("<script>")[1].split("</script>")[0]
 for ident in required_ids:
     if f"const {ident} = " not in js:
@@ -1656,10 +2160,22 @@ for fn in ["renderAll", "renderPantry", "renderResults", "renderEraRail",
            "renderCard", "buildBody", "scoreRecipe", "fmtQty", "has",
            "savePantry", "loadPantry", "nearEquivalents", "subFor",
            "renderEraBlurb", "renderEraSeg", "renderCuisineSeg",
+           "renderSourceSeg",
            "renderFiction", "renderKindSeg", "renderBookSeg",
-           "renderFoodStrip", "renderFictionBlurb", "fictionBooks"]:
+           "renderFoodStrip", "renderFictionBlurb", "fictionBooks",
+           "sceneExcerpt",
+           # search
+           "foldText", "foldMap", "reEsc", "searchTokens", "highlightFold",
+           "recipeIndex", "searchRecipes", "fictionIndex", "searchFiction",
+           "wireSearch"]:
     if f"function {fn}(" not in js:
         smoke_fail.append(f"function {fn}() missing")
+
+# The search boxes and their clear buttons must exist, or the search
+# feature is half-wired: the code runs, the reader just cannot type.
+for dom_id in ["q", "qClear", "fq", "fqClear"]:
+    if f'id="{dom_id}"' not in page:
+        smoke_fail.append(f"search element id={dom_id} missing from page")
 
 # the recipe count in the header must match the corpus
 if f'<span id="recipeCount">{len(ALL_RECIPES)}</span>' not in page:

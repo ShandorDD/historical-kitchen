@@ -80,6 +80,15 @@ BOOKS = {
 # ------------------------------------------------- food vocabulary
 # Deliberately broad: we want to catch the ordinary as well as the
 # grand.  A gothic novel is full of "tea", "wine", "supper".
+#
+# TRAP: the alternation MUST be anchored with word boundaries.  Without
+# \b, "ale" matches inside "Royale", "table" inside "suitable", "pie"
+# inside "copier", "ice" inside "juice", "tart" inside "start", "inn"
+# inside "beginning".  That put 2917 phantom food chips on 1337 cards
+# -- "Ale" on a passage that never mentions ale.  It also left a
+# trailing "|" in verbose mode, which creates an EMPTY alternative:
+# the pattern matched "" at every position, so "" landed in every
+# food list.  Both are fixed by anchoring and dropping the stray "|".
 FOOD_WORDS = r"""
 (?:bread|beer|wine|ale|porter|cider|tea|coffee|chocolate|cocoa|toast|
   butter|cheese|cream|milk|egg|honey|sugar|salt|pepper|spice|
@@ -95,11 +104,11 @@ FOOD_WORDS = r"""
   salad|greens|asparagus|beetroot|beet|cucumber|mushroom|truffle|
   jam|jelly|honey|syrup|molasses|treacle|porridge|oatmeal|barley|rice|
   gravy|broth|entree|dish|meal|breakfast|luncheon|dinner|supper|tea-time|
-  banquet|feast|revel|table|dining-room|dining room|kitchen|pantry|
+  banquet|feast|revel|table|dining-room|dining.room|kitchen|pantry|
   cellar|vault|butler|cook|housekeeper|waiter|footman|manners|
   goulash|goulach|borscht|borsch|beefsteak|pirog|pirog|blini|vareniki|
-  borscht|cabbage|beet|sour cream|smetana|mustard|horseradish|
-  paprika|paprika|cumin|coriander|saffron|bay leaf|clove|cumin|
+  borscht|cabbage|beet|sour[ -]cream|smetana|mustard|horseradish|
+  paprika|paprika|cumin|coriander|saffron|bay[ -]leaf|clove|cumin|
   hash|mince|pudding|tarts|cakes|biscuit|custard|omelette|omelet|
   chocolate|coffee|tea|sugar|honey|ice|syrup|lemonade|beer|ale|
   port|claret|sherry|champagne|burgundy|bordeaux|burgundy|
@@ -109,7 +118,7 @@ FOOD_WORDS = r"""
   rat|mouse|mole|vermin|roast|devour|feast|gorge|glut|banquet|
   haggis|gammon|chops|baron|beef|mutton|pork|veal|lamb|calf|liver|
   kidney|heart|tongue|brawn|palate|head|pig|ox|sheep|goat|bear|boar|
-  venison|elk|deer|hare|grouse|ptarmigan|wild duck|teal|heron|
+  venison|elk|deer|hare|grouse|ptarmigan|wild[ -]duck|teal|heron|
   carp|salmon|trout|pike|eel|perch|roach|dace|bream|pike|
   cheese|butter|milk|cream|curds|whey|rennet|churn|
   bread|barm|yeast|leaven|hops|malt|ale|brew|tavern|
@@ -124,12 +133,12 @@ FOOD_WORDS = r"""
   holy|stolen|blessed|christmas|easter|fast|feast-day|
   hungarian|russian|polish|slav|bohemian|magyar|serbian|romanian|
   transylvania|carpathian|steppe|poland|russia|hungary|balkans|
-  paprika|red pepper|black pepper|paprika|boros|csarnok|goulash|
+  paprika|red[ -]pepper|black[ -]pepper|paprika|boros|csarnok|goulash|
   borscht|blini|strogonoff|beefstroganoff|kulebyaka|solyanka|shchi|
-  kasha|vareniki|potato dumplings|kolacky|rozgal|
+  kasha|vareniki|potato[ -]dumplings|kolacky|rozgal|
   onion|onions|garlic|horseradish|mustard|vinegar|peasant|
   peasant|serf|husbandman|farmhouse|cottage|hut|
-  tavern|inn|public house|alehouse|hostelry|
+  tavern|inn|public[ -]house|alehouse|hostelry|
   hospitable|hospitality|refreshment|provision|provisions|store|
   larder|pantry|butler|servant|maid|scullion|cook|housekeeper|
   banquet|carve|carving|platter|tray|groove|dish|service|
@@ -137,8 +146,7 @@ FOOD_WORDS = r"""
   rich|poor|plain|simple|humble|coarse|paltry|meagre|meager|
   feast|banquet|revelry|revel|merrymaking|orgy|orgies|carouse|
   carousing|debauch|glutton|gourmand|gourmet|epicure|epicurean|
-  appetite|voracity|rapacity|greed|avarice|
-)
+  appetite|voracity|rapacity|greed|avarice)
 """
 
 # meal-occasion cues: a paragraph that names one of these is very
@@ -151,7 +159,7 @@ OCCASION = re.compile(
 
 # A paragraph that reads as a meal.  We want the paragraph to have
 # food in it AND some sense of occasion or quantity.
-FOOD_RE = re.compile(FOOD_WORDS, re.I | re.X)
+FOOD_RE = re.compile(r"\b" + FOOD_WORDS + r"\b", re.I | re.X)
 
 CHAPTER_RE = re.compile(
     r"^\s*(CHAPTER\s+[IVXLCDM0-9]+|Chapter\s+[ivxlcdm0-9]+|"

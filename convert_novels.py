@@ -376,6 +376,31 @@ FOOD_DISPLAY = {
     "beet": "Beetroot", "cucumber": "Cucumber", "salad": "Salad",
     "celery": "Celery", "carrots": "Carrots", "garlic": "Garlic",
     "onion": "Onions", "onions": "Onions", "potatoes": "Potatoes",
+    # The mining vocabulary is wider than this display map, so anything
+    # it finds but this map lacks is silently dropped -- and if that
+    # leaves fewer than two labels the whole passage is thrown away.
+    # These are the real foods that were falling through that gap.
+    #
+    # TRAP: the display label must be the word that is actually in the
+    # passage, or the chip lies.  "flesh" in a vampire passage is not
+    # "Meat" -- it is what is being eaten, and saying "Meat" when the
+    # text says "flesh" is a small lie in a corpus whose whole promise
+    # is that the quote is the evidence.  Label it "Flesh".  Same for
+    # "pig" -> "Pig", not "Pork": the text says pig, and the animal on
+    # the page is the animal the reader can check.
+    "meat": "Meat", "flesh": "Flesh", "sheep": "Sheep", "goat": "Goat",
+    "pig": "Pig", "ox": "Ox", "baron": "Baron", "egg": "Egg",
+    "orange": "Oranges", "grape": "Grapes", "cherry": "Cherries",
+    "lime": "Lime", "vegetables": "Vegetables", "spice": "Spices",
+    "head": "Head", "kidney": "Kidney", "whey": "Whey", "curds": "Curd",
+    "mace": "Mace", "halibut": "Halibut", "perch": "Perch",
+    "beefsteak": "Beefsteak", "chop": "Chops", "bones": "Bones",
+    "bone": "Bones", "platter": "Platter", "mole": "Mole",
+    "mouse": "Mouse", "rat": "Rat", "vermin": "Vermin",
+    "red pepper": "Red pepper", "black pepper": "Black pepper",
+    "tarts": "Tarts", "cakes": "Cakes", "groove": "Groove",
+    "entrails": "Entrails", "carcass": "Carcass", "palate": "Palate",
+    "lard": "Lard", "bacon": "Bacon",
 }
 
 # the mining vocabulary is noisy: these are structural, not food
@@ -398,6 +423,29 @@ NOT_FOOD = {
     "poultry", "game", "wild", "roe", "shellfish", "seafood",
     "greens", "salad", "spices", "sugar", "honey", "jam", "jelly",
     "treacle", "syrup", "molasses",
+    # Context, adjectives and people, not things on the table.  These
+    # were eating the two food slots a passage needs to qualify, and
+    # each one that took a slot also cost a real dish its label.
+    "dining-room", "dining room", "public-house", "public house",
+    "meal", "dish", "dishes", "service", "hospitality", "hospitable",
+    "refreshment", "provisions", "provision", "store", "fast",
+    "poor", "rich", "simple", "plain", "sweet", "humble", "coarse",
+    "meagre", "paltry", "exquisite", "sumptuous", "delicious",
+    "savoury", "epicure", "epicurean", "gourmand", "carouse",
+    "carousing", "debauch", "merrymaking", "revelry", "orgy", "orgies",
+    "avarice", "rapacity", "voracity", "greed", "epicure",
+    "maid", "waiter", "footman", "manners", "hostelry", "tavern",
+    "inn", "cottage", "hut", "farmhouse", "peasant", "serf",
+    "hungarian", "russian", "polish", "bohemian", "russia", "hungary",
+    "poland", "christmas", "easter", "holy", "blessed", "stolen",
+    "smoking", "odour", "odor", "reeking", "pot", "kettle", "oven",
+    "boiler", "ladle", "basin", "mill", "range", "vault", "fires",
+    "carve", "carving", "devour", "recipe", "cooking", "cookery",
+    "cooks", "basil", "baron",
+    # False friends: the word is real, but the matches are not food.
+    # "head" is nearly always "headache"/"turned his head"; "fast" is
+    # "fast asleep"/"travelling fast"; "baron" is a title, not a cut.
+    "head", "fast", "baron",
 }
 
 # Passages that are not food scenes but slipped through.  Note that
@@ -421,6 +469,20 @@ STRONG = re.compile(
     r"serve|served|drink|drank|drinking|relish|gorge|glutton|"
     r"appetite|hunger|thirst|cook|cooking|cooked|kitchen|"
     r"dining|tasting|sip|bit|ate)\b", re.I)
+
+# A MEAL actually happening, as opposed to the word "table" turning up
+# in "he put the file on the table".  Used to admit a passage that names
+# only one food but clearly describes a meal being eaten or laid out:
+# "I found supper already laid out" is a food scene even when the only
+# dish named is the supper itself.
+MEAL_EVENT = re.compile(
+    r"\b(?:supper|dinner|breakfast|luncheon|breakfast-room|banquet|feast|"
+    r"revel|ate|eat|eaten|eating|devour(?:ed)?|gorge(?:d)?|taste(?:d)?|"
+    r"served|serve|dining|meal|dined|dining-room|table was|tablecloth|"
+    r"laid out|lay the table|waiter|hostess|butler|servant brought|"
+    r"brought in|served up|carve[ds]? the|helpings?|plate of|"
+    r"smoked|drank|drinking|drink|glass of|pot of|tureen|platter|"
+    r"breakfast-room|supper-room)\b", re.I)
 
 
 def clean(s):
@@ -457,8 +519,15 @@ def main():
                 continue
             if disp not in foods:
                 foods.append(disp)
+
+        # The gate.  A passage qualifies if it names two or more real
+        # foods, OR one real food AND an actual meal event -- "I found
+        # supper already laid out" is a food scene even when the only
+        # dish named is the supper.  Requiring two foods unconditionally
+        # threw away more than half the corpus.
         if len(foods) < 2:
-            continue
+            if len(foods) < 1 or not MEAL_EVENT.search(text):
+                continue
 
         # the passage has to actually be about a meal
         if not re.search(

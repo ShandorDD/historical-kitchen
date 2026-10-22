@@ -11,7 +11,7 @@ copy.
 ## What's in it
 
 **1,681 recipes**, c. 1740 BCE to 2025, every one traced to a source that was
-downloaded and read — plus **1,337 food scenes** mined from 39 classic novels.
+downloaded and read — plus **945 food scenes** mined from 39 classic novels.
 
 | Source | Recipes | Notes |
 |---|---:|---|
@@ -34,8 +34,24 @@ You learn them once; they turn up in everything else.
 
 ## The features
 
+**Search** — one box, over the whole corpus. It reads the title, the
+ingredients, the source, the era, the region, the tags, the method and the
+story paragraph, and it is accent- and case-blind: "crecy" finds *Crécy*,
+"pate" finds *Pâté*. Every word you type has to match somewhere, so "duck
+egg" means both words. The matched term is highlighted in the title, and each
+card says **where** it matched — *title* is the recipe itself, *ingredients*
+is the dish that uses it, *method/story* is only a mention. A query also
+switches the sort to *Relevance*, because what you asked for outranks what
+you can cook right now. The Fiction & Fear tab has its own search over the
+passages, the books, the authors and the foods named.
+
 **Era filter** — a scrolling rail of era cards plus a compact chip row.
 Selecting one filters the corpus and swaps the context panel.
+
+**Source filter** — the third axis: *whose book is this*. Curated primaries
+(13) · Escoffier 1903 (780) · Tasting History (339) · Country cookery (290) ·
+Gordon Ramsay (170). Without it, a reader hunting for Ramsay's 170 recipes
+had no handle on them at all: every one sat in "post-war / British & Irish".
 
 **Cuisine filter** — the second axis: *where* rather than *when*. Twenty-four
 cuisine families derived from each recipe's region string, so "Alcatraz Island,
@@ -51,7 +67,7 @@ instead"). The pantry is remembered in your browser.
 **Scaling** — 4 portions is the standard; 1–12 available. Quantities
 recompute live and switch units sensibly (1.9 L, 2.25 kg, 1 1/2 tbsp).
 
-**Fiction & Fear** — a second tab holding 1,337 food scenes from 39 novels:
+**Fiction & Fear** — a second tab holding 945 food scenes from 39 novels:
 Dracula, Carmilla, Varney the Vampire, Wuthering Heights, A Christmas Carol,
 War and Peace, Ivanhoe, The Talisman and more. Filter by genre (Gothic,
 Victorian, Russian, Regency, Industrial, Sensation, Sea, Adventure, Romance) or
